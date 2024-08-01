@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MLE Emulator</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #terminal { width: 100%; height: 200px; background: black; color: white; }
+        #screen { width: 640px; height: 480px; background: #333; margin: 20px 0; }
+        #mouse { width: 10px; height: 10px; background: red; position: absolute; }
+        #programLoader { margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Minimalistic Logic Engine Emulator</h1>
+    <div id="terminal"></div>
+    <canvas id="screen"></canvas>
+    <div id="mouse"></div>
+    <input type="file" id="programLoader" />
+    <button onclick="loadProgram()">Load Program</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.14.1/xterm.min.js"></script>
+    <script>
+        const term = new Terminal();
+        term.open(document.getElementById('terminal'));
+        term.write('MLE Emulator Ready\\r\\n');
+
+        const screen = document.getElementById('screen');
+        const ctx = screen.getContext('2d');
+        const mouse = document.getElementById('mouse');
+
+        let memory = new Uint8Array(256);
+        let registers = new Uint8Array(8);
+        let pc = 0;
+        let bitWidth = 1;
+
+        function setBitWidth(width) {
+            bitWidth = width;
+        }
+
+        function executeInstruction(instruction) {
+            const tokens = instruction.split(' ');
+            switch (tokens[0]) {
+                case 'SETBW':
+                    setBitWidth(parseInt(tokens[1].substring(1)));
+                    break;
+                case 'LOAD':
+                    registers[parseInt(tokens[1].substring(1))] = memory[parseInt(tokens[2].substring(1, tokens[2].length - 1), 16)];
+                    break;
+                case 'STORE':
+                    memory[parseInt(tokens[2].substring(1, tokens[2].length - 1), 16)] = registers[parseInt(tokens[1].substring(1))];
+                    break;
+                case 'NAND':
+                    const r1 = parseInt(tokens[1].substring(1));
+                    const r2 = parseInt(tokens[2].substring(1));
+                    const r3 = parseInt(tokens[3].substring(1));
+                    let result = 0;
+                    for (let i = 0; i < bitWidth; i++) {
+                        const bitR2 = (registers[r2] >> i) & 1;
+                        const bitR3 = (registers[r3] >> i) & 1;
+                        const bitResult = ~(bitR2 & bitR3) & 1;
+                        result |= (bitResult << i);
+                    }
+                    registers[r1] = result;
+                    break;
+                case 'JUMP':
+                    pc = parseInt(tokens[1].substring(1, tokens[1].length - 1), 16);
+                    break;
+                case 'OUT':
+                    const output = registers[parseInt(tokens[1].substring(1))];
+                    term.write(`Output: ${output}\\r\\n`);
+                    break;
+                case 'IN':
+                    // Handle input
+                    break;
+                default:
+                    term.write(`Unknown instruction: ${tokens[0]}\\r\\n`);
+            }
+        }
+
+        function loadProgram() {
+            const fileInput = document.getElementById('programLoader');
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const program = event.target.result.split('\\n');
+                for (let i = 0; i < program.length; i++) {
+                    executeInstruction(program[i]);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        document.addEventListener('keydown', (event) => {
+            term.write(event.key);
+            // Handle keyboard input
+        });
+
+        screen.addEventListener('mousemove', (event) => {
+            mouse.style.left = `${event.clientX}px`;
+            mouse.style.top = `${event.clientY}px`;
+            // Handle mouse movement
+        });
+
+        // Example program
+        const exampleProgram = `
+            SETBW R1
+            LOAD R2, [0x10]
+            NAND R3, R2, R2
+            STORE R3, [0x12]
+            OUT R3, [0x01]
+            JUMP [0x00]
+        `;
+        loadProgram(exampleProgram);
+    </script>
+</body>
+</html>
